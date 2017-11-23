@@ -4,13 +4,14 @@
 - Author: YU
 - Version: 1.0
 - Date: 2017-11-23
-- Description: //模块信息
+- Description: Linux TCP socket通信//模块信息
 - Function List: //主要函数及其功能
   1.
   2.
 - History: //修改历史记录 
 	<author>	<time>		<version>	<desc>
 	YU 			17/11/23	1.0			build this module
+	YU			17/11/23	2.0			多进程处理并发请求
 *********************************************************/
 #include <stdio.h>
 #include <sys/socket.h>
@@ -29,6 +30,7 @@ int main(int argc, char const *argv[])
 	int nbyte;
 	int addr_size;	
 	int ret;
+	int pid;
 
 	//1. 创建套接字
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -71,15 +73,28 @@ int main(int argc, char const *argv[])
 			return -1;
 		}
 		printf("server get connection from %s!\n", inet_ntoa(client_addr.sin_addr));
-		//5. 接收数据
-		nbyte = recv(new_sockfd, buffer, 128, 0);
-		if (nbyte == -1)
+
+		//由子进程来处理数据通讯
+		pid = fork();
+		if (pid == 0)
 		{
-			printf("recv() error!\n");
-			return -1;
+			//5. 接收数据
+			nbyte = recv(new_sockfd, buffer, 128, 0);
+			if (nbyte == -1)
+			{
+				printf("recv() error!\n");
+				return -1;
+			}
+			buffer[nbyte] = '\0';//添加字符串结束符，方便打印
+			printf("server received: %s\n", buffer);
+
+			close(sockfd);
+			close(new_sockfd);
+
+			return 0;
+		} else if (pid < 0) {
+			printf("fork error!\n");
 		}
-		buffer[nbyte] = '\0';//添加字符串结束符，方便打印
-		printf("server received: %s\n", buffer);
 		//6. 结束连接
 		close(new_sockfd);
 	}
